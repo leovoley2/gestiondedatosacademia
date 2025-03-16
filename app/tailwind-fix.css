@@ -1,0 +1,29 @@
+/* Definiciones de clases que están causando problemas */
+.border-gray-200 {
+    border-color: #e5e7eb !important;
+  }
+  
+  .bg-gray-50, .bg-gray-100, .bg-gray-200 {
+    background-color: #f9fafb !important;
+  }
+  
+  .text-gray-500 {
+    color: #6b7280 !important;
+  }
+  
+  .border-slate-200 {
+    border-color: #e2e8f0 !important;
+  }
+  
+  /* Otras clases que podrían estar faltando */
+  .bg-red-50 {
+    background-color: #fef2f2 !important;
+  }
+  
+  .bg-blue-50 {
+    background-color: #eff6ff !important;
+  }
+  
+  .bg-green-50 {
+    background-color: #f0fdf4 !important;
+  }
