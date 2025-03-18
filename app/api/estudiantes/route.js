@@ -1,41 +1,9 @@
-import { NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-
-// Configuración de la conexión a la base de datos
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'academia_app',
-  port: parseInt(process.env.DB_PORT || '3306')
-};
-
-// GET - Obtener todos los estudiantes
-export async function GET() {
-  let connection;
-  try {
-    connection = await mysql.createConnection(dbConfig);
-    
-    const [estudiantes] = await connection.execute(
-      'SELECT * FROM estudiantes ORDER BY nombre ASC'
-    );
-    
-    return NextResponse.json(estudiantes);
-  } catch (error) {
-    console.error('Error al obtener estudiantes:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  } finally {
-    if (connection) {
-      await connection.end();
-    }
-  }
-}
-
 // POST - Crear un nuevo estudiante
 export async function POST(request) {
   let connection;
   try {
     const data = await request.json();
+    console.log('Datos recibidos para crear estudiante:', data);
     
     // Crear la fecha de proximo pago basada en clases
     const fechaInscripcion = data.fechaInscripcion || new Date().toISOString().split('T')[0];
@@ -53,8 +21,11 @@ export async function POST(request) {
     
     const proximoPagoStr = proximoPago.toISOString().split('T')[0];
     
+    console.log('Conectando a la base de datos...');
     connection = await mysql.createConnection(dbConfig);
+    console.log('Conexión exitosa');
     
+    console.log('Ejecutando consulta INSERT...');
     const [result] = await connection.execute(
       `INSERT INTO estudiantes 
       (nombre, email, telefono, curso, fecha_inscripcion, ultimo_pago, proximo_pago, 
@@ -74,19 +45,31 @@ export async function POST(request) {
         'Al día'
       ]
     );
+    console.log('Resultado INSERT:', result);
+    
+    if (result.affectedRows === 0) {
+      throw new Error('No se pudo insertar el estudiante');
+    }
     
     const [nuevoEstudiante] = await connection.execute(
       'SELECT * FROM estudiantes WHERE id = ?',
       [result.insertId]
     );
+    console.log('Estudiante creado:', nuevoEstudiante[0]);
     
     return NextResponse.json(nuevoEstudiante[0], { status: 201 });
   } catch (error) {
-    console.error('Error al crear estudiante:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Error detallado al crear estudiante:', error);
+    return NextResponse.json({ 
+      error: error.message,
+      sqlState: error.sqlState,
+      sqlCode: error.code,
+      sqlMessage: error.sqlMessage 
+    }, { status: 500 });
   } finally {
     if (connection) {
       await connection.end();
+      console.log('Conexión a la base de datos cerrada');
     }
   }
 }
