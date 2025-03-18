@@ -1,15 +1,18 @@
 // services/pagoService.js
 
 // Función para registrar un pago
-export const registrarPago = (pago) => {
-  // En una aplicación real, aquí se registraría en la base de datos
-  return Promise.resolve({
-    id: Date.now(),
-    estudiante: pago.estudiante,
-    fecha: new Date(),
-    monto: pago.monto || 0,
-    descripcion: pago.descripcion || 'Pago mensual',
-    clasesPorPeriodo: pago.clasesPorPeriodo,
-    frecuenciaClases: pago.frecuenciaClases
+export const registrarPago = async (pago) => {
+  const res = await fetch('/api/pagos', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(pago)
   });
+  
+  if (!res.ok) {
+    throw new Error('Error al registrar el pago');
+  }
+  
+  return await res.json();
 };

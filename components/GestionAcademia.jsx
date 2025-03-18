@@ -80,13 +80,26 @@ const GestionAcademia = () => {
       try {
         setCargando(true);
         const data = await getEstudiantes();
+        console.log('Estudiantes cargados:', data);
         
         // Actualizar estados de pago
         const hoy = new Date();
         const estudiantesActualizados = data.map(est => {
-          const fechaProximoPago = new Date(est.proximoPago);
+          const fechaProximoPago = new Date(est.proximo_pago || est.proximoPago);
           return {
             ...est,
+            // Normalizar nombres de campos
+            id: est.id,
+            nombre: est.nombre,
+            email: est.email,
+            telefono: est.telefono,
+            curso: est.curso,
+            fechaInscripcion: est.fecha_inscripcion || est.fechaInscripcion,
+            ultimoPago: est.ultimo_pago || est.ultimoPago,
+            proximoPago: est.proximo_pago || est.proximoPago,
+            clasesPorPeriodo: est.clases_por_periodo || est.clasesPorPeriodo || 8,
+            frecuenciaClases: est.frecuencia_clases || est.frecuenciaClases || 2,
+            clasesRestantes: est.clases_restantes || est.clasesRestantes || 0,
             estadoPago: isBefore(fechaProximoPago, hoy) ? 'Atrasado' : 'Al día'
           };
         });
@@ -94,8 +107,8 @@ const GestionAcademia = () => {
         setEstudiantes(estudiantesActualizados);
         setError(null);
       } catch (err) {
+        console.error('Error al cargar estudiantes:', err);
         setError('Error al cargar los estudiantes. Por favor, intente de nuevo.');
-        console.error(err);
       } finally {
         setCargando(false);
       }
@@ -124,6 +137,7 @@ const GestionAcademia = () => {
   const agregarEstudiante = async () => {
     try {
       setCargando(true);
+      console.log('Enviando datos de estudiante:', nuevoEstudiante);
       
       // Calcular próximo pago basado en las clases
       const fechaInscripcion = new Date(nuevoEstudiante.fechaInscripcion);
@@ -140,11 +154,26 @@ const GestionAcademia = () => {
       };
       
       const estudiante = await crearEstudiante(estudianteData);
+      console.log('Estudiante creado:', estudiante);
       
-      setEstudiantes([...estudiantes, {
+      // Normalizar propiedades para la interfaz
+      const estudianteNormalizado = {
         ...estudiante,
+        id: estudiante.id,
+        nombre: estudiante.nombre,
+        email: estudiante.email,
+        telefono: estudiante.telefono,
+        curso: estudiante.curso,
+        fechaInscripcion: estudiante.fecha_inscripcion || estudiante.fechaInscripcion,
+        ultimoPago: estudiante.ultimo_pago || estudiante.ultimoPago,
+        proximoPago: estudiante.proximo_pago || estudiante.proximoPago,
+        clasesPorPeriodo: estudiante.clases_por_periodo || estudiante.clasesPorPeriodo,
+        frecuenciaClases: estudiante.frecuencia_clases || estudiante.frecuenciaClases,
+        clasesRestantes: estudiante.clases_restantes || estudiante.clasesRestantes,
         estadoPago: 'Al día'
-      }]);
+      };
+      
+      setEstudiantes([...estudiantes, estudianteNormalizado]);
       
       // Resetear el formulario
       setNuevoEstudiante({
@@ -164,8 +193,8 @@ const GestionAcademia = () => {
       setMostrarFormulario(false);
       setError(null);
     } catch (err) {
+      console.error('Error detallado al crear estudiante:', err);
       setError('Error al crear el estudiante. Por favor, intente de nuevo.');
-      console.error(err);
     } finally {
       setCargando(false);
     }
@@ -177,6 +206,7 @@ const GestionAcademia = () => {
     
     try {
       setCargando(true);
+      console.log('Procesando pago para estudiante:', estudianteActual.id);
       
       const fechaActual = new Date();
       const proximoPago = calcularProximoPago(
@@ -186,13 +216,17 @@ const GestionAcademia = () => {
       );
       
       // Registrar el pago
-      await registrarPago({
+      const datosDelPago = {
         estudiante: estudianteActual.id,
         monto: 0, // Establecer el monto según tus necesidades
         descripcion: `Pago por ${datosPago.clasesPorPeriodo} clases`,
         clasesPorPeriodo: datosPago.clasesPorPeriodo,
         frecuenciaClases: datosPago.frecuenciaClases
-      });
+      };
+      
+      console.log('Enviando datos de pago:', datosDelPago);
+      const resultado = await registrarPago(datosDelPago);
+      console.log('Resultado del pago:', resultado);
       
       // Actualizar el estado local
       const estudiantesActualizados = estudiantes.map(est => 
@@ -214,8 +248,8 @@ const GestionAcademia = () => {
       setMostrarFormularioPago(false);
       setError(null);
     } catch (err) {
+      console.error('Error detallado al registrar pago:', err);
       setError('Error al registrar el pago. Por favor, intente de nuevo.');
-      console.error(err);
     } finally {
       setCargando(false);
     }
@@ -225,12 +259,16 @@ const GestionAcademia = () => {
   const eliminarEstudianteHandler = async (id) => {
     try {
       setCargando(true);
+      console.log('Eliminando estudiante con ID:', id);
+      
       await eliminarEstudiante(id);
+      console.log('Estudiante eliminado correctamente');
+      
       setEstudiantes(estudiantes.filter(est => est.id !== id));
       setError(null);
     } catch (err) {
+      console.error('Error detallado al eliminar estudiante:', err);
       setError('Error al eliminar el estudiante. Por favor, intente de nuevo.');
-      console.error(err);
     } finally {
       setCargando(false);
     }
@@ -672,7 +710,7 @@ const GestionAcademia = () => {
                   <option value={1}>1 clase por semana</option>
                   <option value={2}>2 clases por semana</option>
                   <option value={3}>3 clases por semana</option>
-                </select>
+                  </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Fecha de Inscripción</label>
@@ -680,163 +718,110 @@ const GestionAcademia = () => {
                   type="date"
                   className="form-control"
                   value={nuevoEstudiante.fechaInscripcion}
-                  onChange={(e) => setNuevoEstudiante({...nuevoEstudiante, fechaInscripcion: e.target.value})}/>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Próximo Pago (calculado)</label>
-                    <input 
-                      type="date"
-                      className="form-control bg-light"
-                      value={nuevoEstudiante.proximoPago}
-                      readOnly
-                    />
-                    <p className="text-sm mt-2" style={{ color: 'var(--text-light)' }}>
-                      Calculado automáticamente según el número de clases y frecuencia
-                    </p>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button 
-                    className="button button-secondary"
-                    onClick={() => setMostrarFormulario(false)} 
-                    disabled={cargando}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className="button button-primary"
-                    onClick={agregarEstudiante} 
-                    disabled={cargando}
-                  >
-                    {cargando ? (
-                      <>
-                        <div className="spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                        Guardando...
-                      </>
-                    ) : (
-                      'Guardar'
-                    )}
-                  </button>
-                </div>
+                  onChange={(e) => setNuevoEstudiante({...nuevoEstudiante, fechaInscripcion: e.target.value})}
+                />
               </div>
             </div>
-          )}
-    
-          {/* Modal para Registrar Pago */}
-          {mostrarFormularioPago && estudianteActual && (
-            <div className="modal-overlay">
-              <div className="modal">
-                <div className="modal-header">
-                  <h3>Registrar Pago</h3>
-                  <p style={{ color: 'var(--text-light)' }}>Estudiante: {estudianteActual.nombre}</p>
-                </div>
-                <div className="modal-body">
-                  <div className="p-3 mb-4 bg-light rounded">
-                    <p className="mb-2"><strong>Curso:</strong> <span>{estudianteActual.curso}</span></p>
-                    <p className="mb-2"><strong>Último pago:</strong> <span>{formatLocalDate(estudianteActual.ultimoPago)}</span></p>
-                    <p className="mb-2"><strong>Clases contratadas:</strong> <span>{estudianteActual.clasesPorPeriodo || 'N/A'}</span></p>
-                    <p className="mb-2"><strong>Clases restantes:</strong> <span>{estudianteActual.clasesRestantes || 'N/A'}</span></p>
-                    <p><strong>Estado:</strong> 
-                      <span className={`badge ml-2 ${estudianteActual.estadoPago === 'Al día' ? 'badge-success' : 'badge-danger'}`}>
-                        {estudianteActual.estadoPago}
-                      </span>
-                    </p>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Número de Clases a Contratar</label>
-                    <select 
-                      className="form-control"
-                      value={datosPago.clasesPorPeriodo}
-                      onChange={(e) => setDatosPago({
-                        ...datosPago, 
-                        clasesPorPeriodo: parseInt(e.target.value)
-                      })}
-                    >
-                      <option value={4}>4 clases</option>
-                      <option value={8}>8 clases</option>
-                      <option value={12}>12 clases</option>
-                    </select>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Frecuencia de Clases (por semana)</label>
-                    <select 
-                      className="form-control"
-                      value={datosPago.frecuenciaClases}
-                      onChange={(e) => setDatosPago({
-                        ...datosPago, 
-                        frecuenciaClases: parseInt(e.target.value)
-                      })}
-                    >
-                      <option value={1}>1 clase por semana</option>
-                      <option value={2}>2 clases por semana</option>
-                      <option value={3}>3 clases por semana</option>
-                    </select>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Fecha de Pago</label>
-                    <input 
-                      type="date" 
-                      className="form-control bg-light"
-                      value={formatDate(new Date())} 
-                      readOnly 
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Próximo Pago (calculado)</label>
-                    <input 
-                      type="date" 
-                      className="form-control bg-light"
-                      value={formatDate(
-                        calcularProximoPago(
-                          new Date(),
-                          datosPago.clasesPorPeriodo,
-                          datosPago.frecuenciaClases
-                        )
-                      )} 
-                      readOnly 
-                    />
-                    <p className="text-sm mt-2" style={{ color: 'var(--text-light)' }}>
-                      Calculado automáticamente según el número de clases y frecuencia.
-                      <br />
-                      {Math.ceil(datosPago.clasesPorPeriodo / datosPago.frecuenciaClases)} semanas ({datosPago.clasesPorPeriodo} clases, {datosPago.frecuenciaClases} por semana)
-                    </p>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button 
-                    className="button button-secondary"
-                    onClick={() => {
-                      setEstudianteActual(null);
-                      setMostrarFormularioPago(false);
-                    }}
-                    disabled={cargando}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    className="button button-primary"
-                    onClick={procesarPago} 
-                    disabled={cargando}
-                  >
-                    {cargando ? (
-                      <>
-                        <div className="spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                        Procesando...
-                      </>
-                    ) : (
-                      'Confirmar Pago'
-                    )}
-                  </button>
-                </div>
-              </div>
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                className="button button-secondary"
+                onClick={() => setMostrarFormulario(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                className="button button-primary"
+                onClick={agregarEstudiante}
+                disabled={cargando || !nuevoEstudiante.nombre || !nuevoEstudiante.curso}
+              >
+                {cargando ? 'Guardando...' : 'Guardar Estudiante'}
+              </button>
             </div>
-          )}
+          </div>
         </div>
-      );
-    };
-    
-    export default GestionAcademia;
+      )}
+
+      {/* Modal para Registrar Pago */}
+      {mostrarFormularioPago && estudianteActual && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Registrar Pago</h3>
+              <p style={{ color: 'var(--text-light)' }}>
+                Estudiante: <strong>{estudianteActual.nombre}</strong>
+              </p>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">Clases por periodo</label>
+                <select 
+                  className="form-control"
+                  value={datosPago.clasesPorPeriodo}
+                  onChange={(e) => setDatosPago({...datosPago, clasesPorPeriodo: parseInt(e.target.value)})}
+                >
+                  <option value={4}>4 clases</option>
+                  <option value={8}>8 clases</option>
+                  <option value={12}>12 clases</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Frecuencia de Clases (por semana)</label>
+                <select 
+                  className="form-control"
+                  value={datosPago.frecuenciaClases}
+                  onChange={(e) => setDatosPago({...datosPago, frecuenciaClases: parseInt(e.target.value)})}
+                >
+                  <option value={1}>1 clase por semana</option>
+                  <option value={2}>2 clases por semana</option>
+                  <option value={3}>3 clases por semana</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <p>
+                  <span className="font-medium">Fecha del pago: </span>
+                  {formatLocalDate(new Date())}
+                </p>
+                <p>
+                  <span className="font-medium">Próximo pago: </span>
+                  {formatLocalDate(calcularProximoPago(
+                    new Date(),
+                    datosPago.clasesPorPeriodo,
+                    datosPago.frecuenciaClases
+                  ))}
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                className="button button-secondary"
+                onClick={() => {
+                  setEstudianteActual(null);
+                  setMostrarFormularioPago(false);
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                className="button button-primary"
+                onClick={procesarPago}
+                disabled={cargando}
+              >
+                {cargando ? 'Procesando...' : 'Registrar Pago'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <footer className="app-footer">
+        <p>© {new Date().getFullYear()} Sistema de Gestión Académica</p>
+      </footer>
+    </div>
+  );
+};
+
+export default GestionAcademia;
